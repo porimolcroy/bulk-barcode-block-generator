@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>বারকোড ও এক্সেল ব্লক — এক ফাইলে</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600&family=Noto+Serif+Bengali:wght@400;600&family=Hind+Siliguri:wght@400;600&family=Mukta:wght@400;600&family=Baloo+Da+2:wght@400;600&family=Anek+Bangla:wght@400;600&family=Tiro+Bangla&family=Galada&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#fff;--fg:#111;--bd:#333;--mut:#666;--card:#fff;padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;padding:15px;background:#f0f2f5;color:#222;font-family:"Noto Sans Bengali",'Segoe UI',Arial,sans-serif}
+button,.upload-btn{padding:8px 16px;cursor:pointer;border-radius:4px;border:none;font-weight:bold;font-size:13px;font-family:inherit;display:inline-block}
+:focus-visible{outline:2px solid #007bff;outline-offset:2px}
+
+/* ---------- ট্যাব বার ---------- */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;margin:0 auto 14px;max-width:1000px}
+.tab-btn{background:#e2e6ea;color:#333;padding:10px 18px;font-size:14px}
+.tab-btn.active{background:#007bff;color:#fff}
+.tabs .inventor-btn{background:#6c757d;color:#fff;margin-left:auto}
+.panel{display:none}
+.panel.active{display:block}
+
+/* ---------- বারকোড ---------- */
+#tab-barcode{padding-bottom:100px}
+.no-print{text-align:center;margin-bottom:15px}
+.status{font-size:13px;color:#555;min-height:18px}
+.status.err{color:#b02a37}
+.grid-container{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:1000px;margin:0 auto}
+.barcode-card{background:#fff;border:1px solid #ccc;padding:4px;text-align:center;border-radius:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:0}
+.input-box{width:100%;padding:4px;border:1px solid #bbb;border-radius:3px;font-size:11px;outline:none;margin-bottom:4px}
+.controls{text-align:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom,0px));position:fixed;bottom:0;left:0;width:100%;background:#fff;border-top:2px solid #28a745;box-shadow:0 -2px 8px rgba(0,0,0,.1);display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;z-index:50}
+.add-btn{background:#28a745;color:#fff}
+.print-btn{background:#007bff;color:#fff}
+.upload-btn{background:#fd7e14;color:#fff}
+.clear-btn{background:#dc3545;color:#fff}
+.hdr{font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer}
+#file-input{display:none}
+
+/* ---------- এক্সেল ব্লক ---------- */
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--card);padding:12px;border-radius:8px;margin:0 auto 16px;max-width:1000px;border:1px solid #ddd}
+.bar label{font-size:14px;color:var(--mut)}
+.bar input[type=number]{width:70px;padding:4px}
+.bar button{padding:6px 12px}
+#grid{display:grid;gap:0;justify-content:center;grid-template-columns:repeat(4,var(--w,0.5in))}
+.blk{width:var(--w,0.5in);height:var(--h,0.5in);border:1px solid var(--bd);margin:-0.5px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;font-size:var(--fs,18pt);line-height:1.05;word-break:break-all;position:relative;font-family:var(--ff,"Noto Sans Bengali",sans-serif);color:var(--fg)}
+.num{font-weight:600}
+[contenteditable]{min-width:0.2em;min-height:0.5em;outline:none}
+[contenteditable]:focus{background:rgba(80,140,255,.25)}
+.del{display:none;position:absolute;top:0;right:1px;font-size:12px;line-height:1;cursor:pointer;color:#d33}
+.blk:hover .del{display:block}
+#msg{color:var(--mut);text-align:center;margin-top:24px}
+
+/* ---------- উদ্ভাবক মডাল ---------- */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.modal-content{background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:10px;padding:20px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+.modal-content h3{margin:0 0 12px}
+.close-btn{background:#dc3545;color:#fff;padding:5px 10px;margin-top:8px;border:none;border-radius:3px;cursor:pointer}
+
+@media (max-width:700px){#barcode-grid{grid-template-columns:repeat(2,1fr)}}
+@media print{
+  @page{size:A4;margin:8mm}
+  body{background:#fff;padding:0}
+  :root{padding-top:0}
+  .no-print,.tabs,.bar,.del{display:none!important}
+  #tab-barcode{padding-bottom:0}
+  #barcode-grid{grid-template-columns:repeat(4,1fr)!important;gap:2mm;max-width:none}
+  .barcode-card{border:.1px solid #aaa;padding:1.5mm;page-break-inside:avoid;height:auto!important;min-height:0!important}
+  #tab-barcode svg{width:100%!important;height:auto!important;display:block}
+}
+</style>
+</head>
+<body>
+
+<div class="tabs no-print">
+  <button class="tab-btn active" data-tab="block" onclick="showTab('block')">📊 এক্সেল ব্লক পেজ</button>
+  <button class="tab-btn" data-tab="barcode" onclick="showTab('barcode')">▮▌ বারকোড জেনারেটর</button>
+  <button class="inventor-btn" onclick="openInventorModal()">উদ্ভাবক</button>
+</div>
+
+<!-- ===================== ট্যাব ১: এক্সেল ব্লক ===================== -->
+<section id="tab-block" class="panel active">
+  <div class="bar">
+    <input type="file" id="f" accept=".xlsx,.xls,.csv">
+    <label>ফন্টের ধরন <select id="ff">
+      <option value="'Noto Sans Bengali',Arial,sans-serif">Noto Sans Bengali</option>
+      <option value="'Noto Serif Bengali','Times New Roman',serif">Noto Serif Bengali</option>
+      <option value="'Hind Siliguri',Arial,sans-serif">Hind Siliguri</option>
+      <option value="'Mukta',Arial,sans-serif">Mukta</option>
+      <option value="'Baloo Da 2',Arial,sans-serif">Baloo Da 2</option>
+      <option value="'Anek Bangla',Arial,sans-serif">Anek Bangla</option>
+      <option value="'Tiro Bangla','Times New Roman',serif">Tiro Bangla</option>
+      <option value="'Galada',cursive">Galada</option>
+      <option value="'Nikosh','NikoshBAN','Noto Sans Bengali',sans-serif">Nikosh (নিকোষ)</option>
+      <option value="'NikoshBAN','Nikosh','Noto Sans Bengali',sans-serif">NikoshBAN (নিকোষব্যান)</option>
+      <option value="Arial,sans-serif">Arial</option>
+      <option value="'Times New Roman',serif">Times New Roman</option>
+    </select></label>
+    <label>ফন্ট (pt) <input type="number" id="fs" value="18" min="4" max="72"></label>
+    <label>প্রস্থ (ইঞ্চি) <input type="number" id="bw" value="0.5" min="0.2" max="5" step="0.1"></label>
+    <label>দৈর্ঘ্য (ইঞ্চি) <input type="number" id="bh" value="0.5" min="0.2" max="5" step="0.1"></label>
+    <label>প্রতি লাইনে ব্লক <input type="number" id="cols" value="4" min="1" max="20"></label>
+    <button onclick="addBlock()">+ নতুন ব্লক</button>
+    <button onclick="window.print()">প্রিন্ট</button>
+  </div>
+  <div id="grid"></div>
+  <p id="msg">এক্সেল ফাইল আপলোড করুন। মানের শুরুর সংখ্যা উপরে, তারপরের লেখা নিচে অটো আসবে। সংশোধনের জন্য ব্লকের লেখায় ক্লিক করে টাইপ করুন।</p>
+</section>
+
+<!-- ===================== ট্যাব ২: বারকোড ===================== -->
+<section id="tab-barcode" class="panel">
+  <div class="no-print">
+    <h3 style="margin:0 0 5px 0">বারকোড তৈরির সাইট</h3>
+    <div id="status" class="status">Excel ফাইলের প্রথম কলামের সংখ্যা আপলোড করলে অটো বারকোড হবে।</div>
+  </div>
+
+  <div id="barcode-grid" class="grid-container"></div>
+
+  <div class="no-print controls">
+    <button class="add-btn" onclick="addNewField()">+ নতুন বই</button>
+    <label class="upload-btn" for="file-input">Excel আপলোড</label>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+    <label class="hdr"><input type="checkbox" id="skip-header"> প্রথম সারি বাদ দিন</label>
+    <button class="print-btn" onclick="window.print()">প্রিন্ট (A4)</button>
+    <button class="clear-btn" onclick="clearAll()">সব মুছুন</button>
+  </div>
+</section>
+
+<!-- ===================== উদ্ভাবক মডাল (দুই ট্যাবের জন্য একটাই) ===================== -->
+<div id="inventorModal" class="modal" onclick="if(event.target===this)closeInventorModal()">
+  <div class="modal-content">
+    <h3>উদ্ভাবক পরিচিতি</h3>
+    <p>পরিমল চন্দ্র রায় <br>
+      <a href="mailto:porimolcroy@gmail.com" style="color:#007bff;text-decoration:none">porimolcroy@gmail.com</a>
+    </p>
+    <p><a href="https://yourwebsite.com" target="_blank" style="color:#007bff;text-decoration:none;font-weight:bold">ওয়েবসাইট ভিজিট করুন</a></p>
+    <button class="close-btn" onclick="closeInventorModal()">বন্ধ করুন</button>
+  </div>
+</div>
+
+<script>
+/* ---------- ট্যাব ও মডাল ---------- */
+function showTab(name){
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name);});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-tab')===name);});
+  window.scrollTo(0,0);
+}
+function openInventorModal(){document.getElementById('inventorModal').classList.add('open');}
+function closeInventorModal(){document.getElementById('inventorModal').classList.remove('open');}
+
+/* ================= এক্সেল ব্লক ================= */
+(function(){
+var rows=[];
+function toBn(s){return String(s).replace(/[0-9]/g,function(d){return '০১২৩৪৫৬৭৮৯'.charAt(d)});}
+function splitRow(r){
+  var s=r.map(function(c){return String(c==null?'':c)}).join(' ').replace(/\s+/g,' ').trim();
+  if(!s)return null;
+  var m=s.match(/^([0-9০-৯]+(?:[.,][0-9০-৯]+)*)\s*(.*)$/);
+  return m?[toBn(m[1]),m[2]]:['',s];
+}
+function placeEnd(el){var r=document.createRange();r.selectNodeContents(el);r.collapse(false);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}
+var g=document.getElementById('grid');
+function addBlock(at){
+  var p=(typeof at==='number')?at:rows.length;
+  rows.splice(p,0,['','']);render();
+  var b=g.children[p];
+  if(b){b.firstChild.focus();b.scrollIntoView({block:'nearest'});}
+}
+window.addBlock=addBlock;
+function edit(el,i,k){
+  el.contentEditable='true';el.spellcheck=false;
+  el.addEventListener('input',function(){
+    if(k===0){var v=toBn(el.textContent);if(v!==el.textContent){el.textContent=v;placeEnd(el);}}
+    rows[i][k]=el.textContent;
+  });
+  if(k===0)el.addEventListener('blur',function(){var v=toBn(el.textContent);el.textContent=v;rows[i][0]=v;});
+  el.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();addBlock(i+1);}
+    else if(e.key===' '&&k===0){e.preventDefault();var t2=el.parentNode.children[1];t2.focus();placeEnd(t2);}
+    else if(e.key==='Backspace'&&k===1&&!el.textContent){e.preventDefault();var p2=el.parentNode.firstChild;p2.focus();placeEnd(p2);}});
+}
+function render(){
+  var r=document.documentElement.style;
+  r.setProperty('--fs',document.getElementById('fs').value+'pt');
+  r.setProperty('--ff',document.getElementById('ff').value);
+  r.setProperty('--w',document.getElementById('bw').value+'in');
+  r.setProperty('--h',document.getElementById('bh').value+'in');
+  g.style.gridTemplateColumns='repeat('+document.getElementById('cols').value+',var(--w))';
+  g.innerHTML='';
+  rows.forEach(function(x,i){
+    var b=document.createElement('div');b.className='blk';
+    var n=document.createElement('div');n.className='num';n.textContent=x[0];edit(n,i,0);
+    var t=document.createElement('div');t.textContent=x[1];edit(t,i,1);
+    b.appendChild(n);b.appendChild(t);
+    var d=document.createElement('span');d.className='del';d.textContent='×';d.title='মুছুন';
+    d.onclick=function(){rows.splice(i,1);render();};
+    b.appendChild(d);g.appendChild(b);
+  });
+  document.getElementById('msg').style.display=rows.length?'none':'block';
+}
+document.getElementById('f').addEventListener('change',function(e){
+  var file=e.target.files[0];if(!file)return;
+  var rd=new FileReader();
+  rd.onload=function(ev){
+    try{
+      var wb=XLSX.read(ev.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      rows=data.map(splitRow).filter(Boolean);
+      render();
+    }catch(err){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent='ফাইল পড়া যায়নি।'}
+  };
+  rd.readAsArrayBuffer(file);
+});
+['ff','fs','bw','bh','cols'].forEach(function(id){document.getElementById(id).addEventListener('input',render)});
+render();
+})();
+
+/* ================= বারকোড ================= */
+(function(){
+var count = 0;
+var grid = document.getElementById('barcode-grid');
+var statusEl = document.getElementById('status');
+
+function setStatus(msg, err){ statusEl.textContent = msg; statusEl.className = 'status' + (err ? ' err' : ''); }
+
+function addNewField(value, focus){
+  count++;
+  var id = count;
+  var div = document.createElement('div');
+  div.className = 'barcode-card';
+  div.innerHTML =
+    '<input type="text" class="input-box no-print" id="barcode-input-'+id+'" placeholder="Barcode" oninput="drawBarcode('+id+')" onkeydown="checkNextField(event)">'+
+    '<svg id="barcode-svg-'+id+'"></svg>';
+  grid.appendChild(div);
+  var input = document.getElementById('barcode-input-' + id);
+  if (value !== undefined && typeof value !== 'object') { input.value = value; drawBarcode(id); }
+  if (focus !== false && (value === undefined || typeof value === 'object')) input.focus();
+}
+
+function drawBarcode(id){
+  var value = document.getElementById('barcode-input-' + id).value;
+  var svg = document.getElementById('barcode-svg-' + id);
+  if (value.trim() !== '') {
+    try {
+      JsBarcode('#barcode-svg-' + id, value.trim(), {format:'CODE128', width:1.2, height:10, displayValue:true, fontSize:11, margin:0});
+    } catch (e) { svg.innerHTML = ''; }
+  } else { svg.innerHTML = ''; }
+}
+
+function checkNextField(event){
+  if (event.key === 'Enter') { event.preventDefault(); addNewField(); }
+}
+
+function removeEmptyCards(){
+  grid.querySelectorAll('.barcode-card').forEach(function(c){
+    var inp = c.querySelector('input');
+    if (!inp.value.trim()) c.remove();
+  });
+}
+
+function clearAll(){
+  if (grid.children.length > 1 && !confirm('সব বারকোড মুছে ফেলবেন?')) return;
+  grid.innerHTML = '';
+  setStatus('Excel ফাইলের প্রথম কলামের সংখ্যা আপলোড করলে অটো বারকোড হবে।');
+  addNewField();
+}
+
+// ইনলাইন onclick/oninput এর জন্য গ্লোবাল
+window.addNewField = addNewField;
+window.drawBarcode = drawBarcode;
+window.checkNextField = checkNextField;
+window.clearAll = clearAll;
+
+document.getElementById('file-input').addEventListener('change', function(e){
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      var wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+      var values = rows.map(function(r){ return String(r[0] === undefined ? '' : r[0]).trim(); }).filter(function(v){ return v !== ''; });
+      if (document.getElementById('skip-header').checked) values = values.slice(1);
+      if (!values.length) { setStatus('প্রথম কলামে কোনো সংখ্যা পাওয়া যায়নি।', true); return; }
+      removeEmptyCards();
+      values.forEach(function(v){ addNewField(v, false); });
+      setStatus(values.length + 'টি বারকোড তৈরি হয়েছে (ফাইল: ' + file.name + ')');
+    } catch (err) {
+      setStatus('ফাইলটি পড়া যায়নি। .xlsx, .xls বা .csv ফাইল দিন।', true);
+    }
+    e.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+addNewField(undefined, false);
+})();
+</script>
+</body>
+</html>
